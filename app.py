@@ -1,91 +1,72 @@
 import streamlit as st
 import pandas as pd
 import pickle
-import seaborn as sns
-import matplotlib.pyplot as plt
 
-# Load the pre-trained model
-model_path = r"NoteBook\model\model.pkl"
-with open(model_path, "rb") as file:
-    model = pickle.load(file)
+# Load the Random Forest model from the pickle file
+model = pickle.load(open(r'NoteBook\model\model.pkl', 'rb'))
 
-# Title of the Streamlit app
-st.title("Customer Churn Prediction")
+# Define the columns for user input
+columns = ['tenure', 'PhoneService', 'Contract',
+           'PaperlessBilling', 'PaymentMethod', 'MonthlyCharges', 'TotalCharges']
 
-# Sidebar for dataset upload
-st.sidebar.header("Upload Dataset")
-uploaded_file = st.sidebar.file_uploader("Upload a CSV file", type=["csv"])
+# Create a function to preprocess user input and make predictions
+def predict_churn(input_data):
+    # Preprocess the input data
+    input_df = pd.DataFrame([input_data], columns=columns)
 
-# If file is uploaded, display dataset
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
-    st.write("### Dataset Preview")
-    st.write(df.head())
+    # Make predictions using the loaded model
+    prediction = model.predict(input_df)
+    probability = model.predict_proba(input_df)[:, 1][0]  # Extract single value
 
-    # Show dataset description
-    st.write("### Dataset Info")
-    st.write(df.describe())
+    return prediction[0], probability
 
-    # Churn Distribution Visualization
-    st.write("### Churn Distribution")
-    fig, ax = plt.subplots()
-    sns.countplot(x="Churn", data=df, palette="coolwarm", ax=ax)
-    st.pyplot(fig)
+# Create the Streamlit app
+def main():
+    st.title("Telecom Churn Prediction")
+    st.write("Enter the customer details below to predict churn.")
 
-    # Monthly Charges Distribution
-    st.write("### Monthly Charges Distribution")
-    fig, ax = plt.subplots()
-    sns.histplot(df["MonthlyCharges"], kde=True, bins=30, color="blue", ax=ax)
-    st.pyplot(fig)
+    # Create input fields for user input
+    tenure = st.slider("Tenure (months)", 0, 100, 1)
 
-# Prediction Section
-st.sidebar.header("Customer Data for Prediction")
-gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
-senior_citizen = st.sidebar.selectbox("Senior Citizen", [0, 1])
-partner = st.sidebar.selectbox("Partner", ["Yes", "No"])
-dependents = st.sidebar.selectbox("Dependents", ["Yes", "No"])
-tenure = st.sidebar.slider("Tenure (Months)", min_value=0, max_value=72, step=1)
-phone_service = st.sidebar.selectbox("Phone Service", ["Yes", "No"])
-multiple_lines = st.sidebar.selectbox("Multiple Lines", ["Yes", "No", "No phone service"])
-internet_service = st.sidebar.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-online_security = st.sidebar.selectbox("Online Security", ["Yes", "No", "No internet service"])
-online_backup = st.sidebar.selectbox("Online Backup", ["Yes", "No", "No internet service"])
-device_protection = st.sidebar.selectbox("Device Protection", ["Yes", "No", "No internet service"])
-tech_support = st.sidebar.selectbox("Tech Support", ["Yes", "No", "No internet service"])
-streaming_tv = st.sidebar.selectbox("Streaming TV", ["Yes", "No", "No internet service"])
-streaming_movies = st.sidebar.selectbox("Streaming Movies", ["Yes", "No", "No internet service"])
-contract = st.sidebar.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
-paperless_billing = st.sidebar.selectbox("Paperless Billing", ["Yes", "No"])
-payment_method = st.sidebar.selectbox("Payment Method", ["Electronic check", "Mailed check", "Bank transfer", "Credit card"])
-monthly_charges = st.sidebar.number_input("Monthly Charges", min_value=0.0, step=0.1)
-total_charges = st.sidebar.number_input("Total Charges", min_value=0.0, step=0.1)
+    phone_service = st.selectbox("Phone Service", [0, 1])
+    st.write("0: No, 1: Yes")
+    contract = st.selectbox("Contract", [0, 1, 2])
+    st.write("0: Month-to-month, 1: One year, 2: Two year")
+    paperless_billing = st.selectbox("Paperless Billing", [0, 1])
+    st.write("0: No, 1: Yes")
+    payment_method = st.selectbox("Payment Method", [0, 1, 2, 3])
+    st.write("0: Bank transfer (automatic), 1: Credit card (automatic), 2: Electronic check, 3: Mailed check")
+    monthly_charges = st.number_input("Monthly Charges", min_value=0.0, step=0.1)
+    total_charges = st.number_input("Total Charges", min_value=0.0, step=0.1)
 
-# Create DataFrame for prediction
-user_data = pd.DataFrame({
-    "Gender": [gender],
-    "SeniorCitizen": [senior_citizen],
-    "Partner": [partner],
-    "Dependents": [dependents],
-    "Tenure": [tenure],
-    "PhoneService": [phone_service],
-    "MultipleLines": [multiple_lines],
-    "InternetService": [internet_service],
-    "OnlineSecurity": [online_security],
-    "OnlineBackup": [online_backup],
-    "DeviceProtection": [device_protection],
-    "TechSupport": [tech_support],
-    "StreamingTV": [streaming_tv],
-    "StreamingMovies": [streaming_movies],
-    "Contract": [contract],
-    "PaperlessBilling": [paperless_billing],
-    "PaymentMethod": [payment_method],
-    "MonthlyCharges": [monthly_charges],
-    "TotalCharges": [total_charges]
-})
+    # Create a dictionary to store the user input
+    input_data = {
+        'tenure': tenure,
+        'PhoneService': phone_service,
+        'Contract': contract,
+        'PaperlessBilling': paperless_billing,
+        'PaymentMethod': payment_method,
+        'MonthlyCharges': monthly_charges,
+        'TotalCharges': total_charges
+    }
 
-# Predict Churn
-if st.sidebar.button("Predict Churn"):
-    prediction = model.predict(user_data)
-    churn_result = "Yes" if prediction[0] == 1 else "No"
-    st.write(f"### Predicted Churn: **{churn_result}**")
+    # Add Predict Button
+    if st.button("Predict Churn"):
+        # Predict churn based on user input
+        churn_prediction, churn_probability = predict_churn(input_data)
+        print(churn_prediction)
 
+        # Display the prediction
+        st.subheader("Churn Prediction")
+        if churn_probability >= 0.4:
+            st.write("The customer is **likely** to churn.")
+        else:
+            st.write("The customer is **unlikely** to churn.")
+
+        # Display the churn probability
+        st.subheader("Churn Probability")
+        st.write(f"The probability of churn is: **{churn_probability:.2f}**")
+
+# Run the Streamlit app
+if __name__ == '__main__':
+    main()
